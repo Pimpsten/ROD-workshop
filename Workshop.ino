@@ -100,8 +100,14 @@ void ChangeSpeed(){
 }
 
 void CommOut(){
+  while(1){
+    
 
 
+
+
+    
+  }
 }
 
 
