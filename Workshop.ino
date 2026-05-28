@@ -21,7 +21,9 @@ void setup() {
 }
 
 void CommIn(){
-
+if (Serial.available()) {
+   maxSpeed = Serial.read();
+}
 k_wait();
 k_signal();
 }
