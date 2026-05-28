@@ -10,7 +10,7 @@ struct allInfo {
 
 speedData speedBuffer[2];
 allInfo infoBuffer[2];
-int maxSpeedBuffer[2];
+int setSpeedBuffer[2];
 
 
 struct k_msg_t *Queue_Ctrl, *Queue_ReadSpd, *Queue_Cmot;          // message queues
@@ -29,7 +29,7 @@ void setup() {
   pTask5 = k_crt_task(ChangeSpeed, 10, taskStak5, 150);  // Ændrer hastighed
   pTask6 = k_crt_task(CommOut, 10, taskStak6, 150);
 
-  Queue_Ctrl = k_crt_send_Q(2, sizeof(int), maxSpeedBuffer);
+  Queue_setSpeed = k_crt_send_Q(2, sizeof(int), setSpeedBuffer);
   Queue_ReadSpd = k_crt_send_Q(2, sizeof(speedData), speedBuffer);
   Queue_Cmot = k_crt_send_Q(2, sizeof(allInfo), InfoBuffer);
 
