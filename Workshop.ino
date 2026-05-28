@@ -3,10 +3,18 @@ struct k_t *pTask1, *pTask2, *pTask3, *pTask4, *pTask5, *pTask6;  // task
 int maxSpeed, currentSpeed, newSpeed;
 float desiredSpeed;
 
+const int pwmPin = 10;
+const int dirPin = 12;
+
 unsigned char taskStak1[STK],taskStak2[STK],taskStak3[STK],taskStak4[STK],taskStak5[STK],taskStak6[STK];
 
 void setup() {
-  Serial.begin(115200);
+  Serial.begin(115200);¨
+
+  pinMode(pwmPin, OUTPUT);
+  pinMode(dirPin, OUTPUT);
+
+
   k_init(6, /*to be chosen*/, /*to be chosen*/);
   pTask1 = k_crt_task(CommIn, 10, taskStak1, 150);       // Seriel protocol
   pTask2 = k_crt_task(TaskCtrl, 10, taskStak2, 150);     // Processer nedenstående variabler
@@ -74,6 +82,22 @@ void ReadSpeed(){
 
 void ChangeSpeed(){
 
+  newSpeed;
+
+  while (1) {
+    k_receive();  // sæt timeout til -1
+
+    if (newSpeed == 0) {
+      analogWrite(pwmPin, 0);
+    } else if (newSpeed > 0) {
+      digitalWrite(dirPin, HIGH);
+    } else {
+      digitalWrite(dirPin, LOW);
+    }
+
+    analogWrite(pwmPin, abs(newSpeed));
+  }
+}
 
 }
 
@@ -95,3 +119,4 @@ void CommOut(){
 
 void loop() {
 }
+
