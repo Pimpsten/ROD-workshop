@@ -1,0 +1,237 @@
+#include <krnl.h>
+#define STK 300
+struct speedData {
+  float rpm, time;
+};
+
+struct allInfo {
+  float time, currentSpeed, desiredSpeed, maxSpeed;
+};
+
+int maxSpeed = 0;
+float desiredSpeedScale = 0.0;
+volatile long encoderCount = 0;
+
+speedData speedBuffer[2];
+allInfo infoBuffer[2];
+int setSpeedBuffer[2];
+
+
+struct k_msg_t *Queue_setSpeed, *Queue_ReadSpd, *Queue_Cmot;      // message queues
+struct k_t *pTask1, *pTask2, *pTask3, *pTask4, *pTask5, *pTask6;  // task
+struct k_t *Timed_sem1, *CommIn_sem2, *ReadMtr_sem3;              // semaphores
+
+char taskStak1[STK], taskStak2[STK], taskStak3[STK], taskStak4[STK], taskStak5[STK], taskStak6[STK];
+
+void setup() {
+  Serial.begin(115200);
+  k_init(6, 3, 3);
+  pTask1 = k_crt_task(CommIn, 5, taskStak1, STK);        // Seriel protocol
+  pTask2 = k_crt_task(TaskCtrl, 10, taskStak2, STK);     // Processer nedenstående variabler
+  pTask3 = k_crt_task(ReadMeter, 5, taskStak3, STK);     // Læser potentiometer
+  pTask4 = k_crt_task(ReadSpeed, 10, taskStak4, STK);    // Læser current speed
+  pTask5 = k_crt_task(ChangeSpeed, 1, taskStak5, STK);  // Ændrer hastighed
+  pTask6 = k_crt_task(CommOut, 15, taskStak6, STK);
+
+  Queue_setSpeed = k_crt_send_Q(2, sizeof(int), setSpeedBuffer);
+  Queue_ReadSpd = k_crt_send_Q(2, sizeof(speedData), speedBuffer);
+  Queue_Cmot = k_crt_send_Q(2, sizeof(allInfo), infoBuffer);
+
+  Timed_sem1 = k_crt_sem(0, 1);
+  CommIn_sem2 = k_crt_sem(0, 1);
+  ReadMtr_sem3 = k_crt_sem(0, 1);
+
+
+ pinMode(10, OUTPUT);
+  pinMode(12, OUTPUT);
+
+  k_start();
+  while (1)
+    ;
+
+
+ 
+}
+
+void CommIn() {
+  char buffer[5];
+  byte bufferIndex = 0;
+  while (1) {
+    k_wait(CommIn_sem2, 0);
+    //Serial.println("CommIn");
+    while (Serial.available()) {
+      char c = Serial.read();
+      if (c == '<')
+        bufferIndex = 0;
+      else if (c == '>') {
+        buffer[bufferIndex] = '\0';
+        maxSpeed = atoi(buffer);
+      } else {
+        buffer[bufferIndex++] = c;
+      }
+    }
+    k_signal(CommIn_sem2);
+
+    k_sleep(10);
+  }
+}
+
+void TaskCtrl() {
+
+  speedData speedDataTmp;
+  allInfo allInfoTmp;
+  int speedTmp = 0;
+  float pFactor = 0.01;
+  int missed;
+
+  while (1) {
+
+    k_receive(Queue_ReadSpd, &speedDataTmp, 0, &missed);
+    k_signal(CommIn_sem2);
+    k_signal(ReadMtr_sem3);
+    k_wait(CommIn_sem2, 0);
+    k_wait(ReadMtr_sem3, 0);
+    //  Serial.println("TaskCtrl");
+
+    float desiredSpeed = maxSpeed * desiredSpeedScale;
+    float differenceInSpeed = desiredSpeed - speedDataTmp.rpm;
+
+    if (differenceInSpeed > 1) {
+      speedTmp++;   // meget simpel udgave
+     // speedTmp = speedTmp + int(differenceInSpeed * pFactor);
+
+    } else if (differenceInSpeed < -1) {
+      speedTmp--;    //meget simpel udgave
+      //speedTmp = speedTmp + int(differenceInSpeed * pFactor);
+    }
+
+speedTmp = constrain(speedTmp, -255, 255);
+    allInfoTmp.time = speedDataTmp.time;
+    allInfoTmp.currentSpeed = speedDataTmp.rpm;
+    allInfoTmp.desiredSpeed = desiredSpeed;
+    allInfoTmp.maxSpeed = maxSpeed;
+
+    k_send(Queue_setSpeed, &speedTmp);
+    k_send(Queue_Cmot, &allInfoTmp);
+  }
+}
+
+void ReadMeter() {
+  while (1) {
+    k_wait(ReadMtr_sem3, 0);
+    //  Serial.println("readMeter");
+    desiredSpeedScale = (analogRead(A0) / 511.5) - 1;  // når potentiometeret er på 50%: maintain speed, alt under eller over giver relativ ændring i hastighed.
+    /*
+AnalogRead læser værdien som uint_10t,
+Dette divideres med 511.5 for at få værdien til at være mellem 0-2 (kommatal),
+-1 for at få intervallet mellem [-1,1]
+*/
+
+    k_signal(ReadMtr_sem3);
+    k_sleep(10);
+  }
+}
+
+void ReadSpeed() {
+  speedData speedDataTmp;
+  const byte encoderPinA = 2;  // interrupt pin
+  const byte encoderPinB = 9;  // læses direkte i register
+
+  const float countsPerRevolution = 500.0;  // tilpas denne
+
+  pinMode(2, INPUT);
+  pinMode(9, INPUT);
+  k_set_sem_timer(Timed_sem1, 100);
+
+  while (1) {
+
+    k_wait(Timed_sem1, 0);
+    // Serial.println("ReadSpeed");
+    attachInterrupt(digitalPinToInterrupt(encoderPinA), encoderISR, RISING);
+
+    unsigned long lastTime = millis();
+    k_sleep(80);
+    detachInterrupt(digitalPinToInterrupt(encoderPinA));
+
+    unsigned long timeNow = millis();
+    unsigned long deltaTime = timeNow - lastTime;
+    float rpm = (encoderCount / countsPerRevolution) / (deltaTime / (60000.0));  //vi deler antallet af rotationer med den tid der er gået i minutter.
+    encoderCount = 0;
+
+    speedDataTmp.rpm = rpm;
+    speedDataTmp.time = timeNow / 1000.0;
+
+    k_send(Queue_ReadSpd, &speedDataTmp);
+  }
+}
+
+void encoderISR() {
+
+  //hvis den tæller op er retningen positiv, og hvis den tæller ned, er retningen negativ.
+  if ((PINH & (1 << 6)) != 0) {
+    encoderCount++;
+  } else {
+    encoderCount--;
+  }
+}
+
+
+void ChangeSpeed() {
+
+  int setSpeedBuffertmp;
+  int missed;
+  const int pwmPin = 10;
+  const int dirPin = 12;
+ //pinMode(10, OUTPUT);
+  //pinMode(12, OUTPUT);
+
+  while (1) {
+    k_receive(Queue_setSpeed, &setSpeedBuffertmp, 0, &missed);  // sæt timeout til -1
+    Serial.print("speed: ");
+    Serial.println(setSpeedBuffertmp);
+
+digitalWrite(dirPin, LOW);
+
+
+analogWrite(pwmPin, setSpeedBuffertmp);
+/*
+    if (setSpeedBuffertmp == 0) {
+      analogWrite(pwmPin, 0);
+    } else if (setSpeedBuffertmp > 0) {
+      digitalWrite(dirPin, LOW);
+    } else {
+      digitalWrite(dirPin, HIGH);
+    }
+
+    analogWrite(pwmPin, abs(setSpeedBuffertmp));
+
+    */
+  }
+}
+
+void CommOut() {
+
+  allInfo allInfoTmp;
+  int missed;
+
+  while (1) {
+
+    k_receive(Queue_Cmot, &allInfoTmp, 0, &missed);  //-1
+                                                     //  Serial.println("CommOut");
+
+    Serial.print(allInfoTmp.time);
+    Serial.print(", ");
+    Serial.print(allInfoTmp.currentSpeed);
+    Serial.print(", ");
+    Serial.print(allInfoTmp.desiredSpeed);
+    Serial.print(", ");
+    Serial.println(allInfoTmp.maxSpeed);
+  }
+}
+
+
+
+
+
+void loop() {
+}
