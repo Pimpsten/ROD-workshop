@@ -30,7 +30,7 @@ void setup() {
   pTask2 = k_crt_task(TaskCtrl, 10, taskStak2, STK);     // Processer nedenstående variabler
   pTask3 = k_crt_task(ReadMeter, 5, taskStak3, STK);     // Læser potentiometer
   pTask4 = k_crt_task(ReadSpeed, 10, taskStak4, STK);    // Læser current speed
-  pTask5 = k_crt_task(ChangeSpeed, 1, taskStak5, STK);  // Ændrer hastighed
+  pTask5 = k_crt_task(ChangeSpeed, 10, taskStak5, STK);  // Ændrer hastighed
   pTask6 = k_crt_task(CommOut, 15, taskStak6, STK);
 
   Queue_setSpeed = k_crt_send_Q(2, sizeof(int), setSpeedBuffer);
@@ -42,8 +42,8 @@ void setup() {
   ReadMtr_sem3 = k_crt_sem(0, 1);
 
 
- pinMode(10, OUTPUT);
-  pinMode(12, OUTPUT);
+ pinMode(12, OUTPUT);
+  pinMode(11, OUTPUT);
 
   k_start();
   while (1)
@@ -95,14 +95,15 @@ void TaskCtrl() {
 
     float desiredSpeed = maxSpeed * desiredSpeedScale;
     float differenceInSpeed = desiredSpeed - speedDataTmp.rpm;
+    
 
     if (differenceInSpeed > 1) {
       speedTmp++;   // meget simpel udgave
-     // speedTmp = speedTmp + int(differenceInSpeed * pFactor);
+      speedTmp = speedTmp + int(differenceInSpeed * pFactor);
 
     } else if (differenceInSpeed < -1) {
       speedTmp--;    //meget simpel udgave
-      //speedTmp = speedTmp + int(differenceInSpeed * pFactor);
+      speedTmp = speedTmp + int(differenceInSpeed * pFactor);
     }
 
 speedTmp = constrain(speedTmp, -255, 255);
@@ -180,32 +181,28 @@ void ChangeSpeed() {
 
   int setSpeedBuffertmp;
   int missed;
-  const int pwmPin = 10;
+  const int pwmPin = 11;
   const int dirPin = 12;
  //pinMode(10, OUTPUT);
   //pinMode(12, OUTPUT);
 
   while (1) {
     k_receive(Queue_setSpeed, &setSpeedBuffertmp, 0, &missed);  // sæt timeout til -1
-    Serial.print("speed: ");
-    Serial.println(setSpeedBuffertmp);
-
-digitalWrite(dirPin, LOW);
+    //Serial.print("speed: ");
+    //Serial.println(setSpeedBuffertmp);
 
 
-analogWrite(pwmPin, setSpeedBuffertmp);
-/*
-    if (setSpeedBuffertmp == 0) {
-      analogWrite(pwmPin, 0);
-    } else if (setSpeedBuffertmp > 0) {
+
+
+    if(setSpeedBuffertmp > 0){
       digitalWrite(dirPin, LOW);
-    } else {
+    }else{
       digitalWrite(dirPin, HIGH);
     }
 
     analogWrite(pwmPin, abs(setSpeedBuffertmp));
 
-    */
+    
   }
 }
 
