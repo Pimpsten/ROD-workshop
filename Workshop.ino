@@ -37,9 +37,14 @@ k_signal();
 }
 
 void ReadMeter(){
-
-k_wait();
-k_signal();
+ float speedFactor = (analogRead(A0)/511.5)-1;    // når potentiometeret er på 50%: maintain speed, alt under eller over giver relativ ændring i hastighed.
+/*
+AnalogRead læser værdien som uint_10t,
+Dette divideres med 511.5 for at få værdien til at være mellem 0-2 (kommatal),
+-1 for at få intervallet mellem [-1,1]
+*/
+k_wait(sem);
+k_signal(sem);
 }
 
 void ReadSpeed(){
