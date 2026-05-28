@@ -3,17 +3,17 @@ struct k_t *pTask1, *pTask2, *pTask3, *pTask4, *pTask5, *pTask6;  // task
 int maxSpeed, currentSpeed, newSpeed;
 float desiredSpeed;
 
-unsigned char taskStak[STK];
+unsigned char taskStak1[STK],taskStak2[STK],taskStak3[STK],taskStak4[STK],taskStak5[STK],taskStak6[STK];
 
 void setup() {
   Serial.begin(115200);
-  k_init(5, 5, 1);
-  pTask1 = k_crt_task(CommIn, 10, taskStak, 150);       // Seriel protocol
-  pTask2 = k_crt_task(TaskCtrl, 10, taskStak, 150);     // Processer nedenstående variabler
-  pTask3 = k_crt_task(ReadMeter, 10, taskStak, 150);    // Læser potentiometer
-  pTask4 = k_crt_task(ReadSpeed, 10, taskStak, 150);    // Læser current speed
-  pTask5 = k_crt_task(ChangeSpeed, 10, taskStak, 150);  // Ændrer hastighed
-  pTask6 = k_crt_task(CommOut,10,taskStak,150);
+  k_init(6, /*to be chosen*/, /*to be chosen*/);
+  pTask1 = k_crt_task(CommIn, 10, taskStak1, 150);       // Seriel protocol
+  pTask2 = k_crt_task(TaskCtrl, 10, taskStak2, 150);     // Processer nedenstående variabler
+  pTask3 = k_crt_task(ReadMeter, 10, taskStak3, 150);    // Læser potentiometer
+  pTask4 = k_crt_task(ReadSpeed, 10, taskStak4, 150);    // Læser current speed
+  pTask5 = k_crt_task(ChangeSpeed, 10, taskStak5, 150);  // Ændrer hastighed
+  pTask6 = k_crt_task(CommOut,10,taskStak6,150);         // Printer værdierne
 
 
 
@@ -22,9 +22,26 @@ void setup() {
 }
 
 void CommIn(){
-if (Serial.available()) {
-   maxSpeed = Serial.read();
-}
+  char buffer[5];
+  byte bufferIndex = 0;
+  while (1) {
+    if (Serial.available()) {
+      char c = Serial.read();
+      if (c == '<') 
+        bufferIndex = 0;
+      else 
+        if (c == '>') {
+        buffer[bufferIndex] = '\0';
+        maxSpeed = atoi(buffer);
+        if (maxSpeed > 100) maxSpeed = 100;
+        if (maxSpeed < -100) maxSpeed = -100;
+        Serial.println(maxSpeed);
+      }
+      else {
+        buffer[bufferIndex++] = c;
+      }
+    }
+  }
 k_wait();
 k_signal();
 }
