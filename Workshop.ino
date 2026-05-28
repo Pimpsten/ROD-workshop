@@ -53,18 +53,18 @@ void CommIn(){
       else 
         if (c == '>') {
         buffer[bufferIndex] = '\0';
-        maxSpeed = atoi(buffer);
-        if (maxSpeed > 100) maxSpeed = 100;
-        if (maxSpeed < -100) maxSpeed = -100;
-        Serial.println(maxSpeed);
+        allInfo.maxSpeed = atoi(buffer);
+        if (allInfo.maxSpeed > 100) allInfo.maxSpeed = 100;
+        if (allInfo.maxSpeed < -100) allInfo.maxSpeed = -100;
+        Serial.println(allInfo.maxSpeed);
       }
       else {
         buffer[bufferIndex++] = c;
       }
     }
   }
-k_wait();
-k_signal();
+k_wait(CommIn_sem2,0);
+k_signal(CommIn_sem2;
 }
 
 void TaskCtrl(){
@@ -78,14 +78,15 @@ k_signal();
 }
 
 void ReadMeter(){
- float desiredSpeed = (analogRead(A0)/511.5)-1;    // når potentiometeret er på 50%: maintain speed, alt under eller over giver relativ ændring i hastighed.
+  while(1)
+  allInfo.desiredSpeed = (analogRead(A0)/511.5)-1;    // når potentiometeret er på 50%: maintain speed, alt under eller over giver relativ ændring i hastighed.
 /*
 AnalogRead læser værdien som uint_10t,
 Dette divideres med 511.5 for at få værdien til at være mellem 0-2 (kommatal),
 -1 for at få intervallet mellem [-1,1]
 */
-k_wait(sem);
-k_signal(sem);
+k_wait(ReadMtr_sem3,0);
+k_signal(ReadMtr_sem3);
 }
 
 void ReadSpeed(){
