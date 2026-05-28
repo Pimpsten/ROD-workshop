@@ -1,6 +1,7 @@
 #include <krnl.h>
 struct k_t *pTask1, *pTask2, *pTask3, *pTask4, *pTask5, *pTask6;  // task
-int maxSpeed, desiredSpeed, currentSpeed, newSpeed;
+int maxSpeed, currentSpeed, newSpeed;
+float desiredSpeed;
 
 unsigned char taskStak[STK];
 
@@ -39,7 +40,7 @@ k_signal();
 }
 
 void ReadMeter(){
- float speedFactor = (analogRead(A0)/511.5)-1;    // når potentiometeret er på 50%: maintain speed, alt under eller over giver relativ ændring i hastighed.
+ float desiredSpeed = (analogRead(A0)/511.5)-1;    // når potentiometeret er på 50%: maintain speed, alt under eller over giver relativ ændring i hastighed.
 /*
 AnalogRead læser værdien som uint_10t,
 Dette divideres med 511.5 for at få værdien til at være mellem 0-2 (kommatal),
